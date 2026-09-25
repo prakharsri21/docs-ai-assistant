@@ -11,5 +11,10 @@ __pycache__/
 frontend/node_modules/
 frontend/.next/
 
+# Generated RAG data
+backend/data/raw/
+backend/data/processed/
+backend/data/visuals/
+
 # OS
 .DS_Store
