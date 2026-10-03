@@ -50,7 +50,7 @@ flowchart LR
 **Hybrid RAG → best answer accuracy**  
 **OKF + Hybrid → best citation validity**
 
-> Citation validity checks provenance; semantic citation faithfulness is planned for V2.
+
 
 ---
 
