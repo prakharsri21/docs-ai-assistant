@@ -2,280 +2,715 @@
 
 import { FormEvent, useState } from "react";
 
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-  const [message, setMessage] = useState("");
+type Citation = {
+  chunk_id: string;
+  source_file: string;
+  page: number;
+};
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+type CitationValidation = {
+  valid: boolean;
+  errors: string[];
+  validated_citations: Citation[];
+};
+
+type RAGResponse = {
+  answer: string;
+  citations: Citation[];
+  citation_validation: CitationValidation;
+};
+
+type ChatResponse = {
+  query: string;
+  basic_rag: RAGResponse;
+  hybrid_rag: RAGResponse;
+  okf_hybrid_rag: RAGResponse;
+};
+
+type TrackName =
+  | "basic_rag"
+  | "hybrid_rag"
+  | "okf_hybrid_rag";
+
+type TrackState = {
+  answer: string;
+  ttftMs: number | null;
+  totalMs: number | null;
+  citations: Citation[];
+  citationValid: boolean | null;
+  status: "waiting" | "streaming" | "complete" | "error";
+};
+
+type AssistantMessage = {
+  role: "assistant";
+  tracks: Record<TrackName, TrackState>;
+};
+
+type ChatMessage =
+  | {
+      role: "user";
+      content: string;
+    }
+  | AssistantMessage;
+
+const EMPTY_TRACK = (): TrackState => ({
+  answer: "",
+  ttftMs: null,
+  totalMs: null,
+  citations: [],
+  citationValid: null,
+  status: "waiting",
+});
+
+const EMPTY_TRACKS = (): Record<TrackName, TrackState> => ({
+  basic_rag: EMPTY_TRACK(),
+  hybrid_rag: EMPTY_TRACK(),
+  okf_hybrid_rag: EMPTY_TRACK(),
+});
+
+const TRACK_LABELS: Record<TrackName, string> = {
+  basic_rag: "Basic RAG",
+  hybrid_rag: "Hybrid RAG",
+  okf_hybrid_rag: "OKF + Hybrid RAG",
+};
+
+export default function Home() {
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
-    // Authentication will be connected to FastAPI on Day 5.
-    setMessage("Login API will be connected after we build authentication.");
+    const query = message.trim();
+
+    if (!query || loading) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+
+    const assistantMessage: AssistantMessage = {
+      role: "assistant",
+      tracks: EMPTY_TRACKS(),
+    };
+
+    setMessages((previous) => [
+      ...previous,
+      {
+        role: "user",
+        content: query,
+      },
+      assistantMessage,
+    ]);
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/v1/chat/stream",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: query,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+
+        throw new Error(
+          `API request failed (${response.status}): ${errorText}`,
+        );
+      }
+
+      if (!response.body) {
+        throw new Error(
+          "The server did not provide a streaming response.",
+        );
+      }
+
+      await consumeStream(
+        response.body,
+        (event, data) => {
+          handleStreamEvent(
+            event,
+            data,
+            setMessages,
+          );
+        },
+      );
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Something went wrong.";
+
+      setError(errorMessage);
+
+      setMessages((previous) => {
+        const updated = [...previous];
+        const last = updated[updated.length - 1];
+
+        if (
+          last?.role === "assistant"
+        ) {
+          last.tracks.basic_rag.status = "error";
+          last.tracks.hybrid_rag.status = "error";
+          last.tracks.okf_hybrid_rag.status = "error";
+        }
+
+        return updated;
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <main className="min-h-screen w-full bg-[#0f131d] text-[#dfe2f1]">
-      <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-4 pb-8 pt-2 sm:px-6">
-        {/* Cohort */}
-        <div className="mb-6 mt-2 flex justify-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-[#262a35]/70 px-3 py-1 backdrop-blur-md">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#4edea3]" />
+    <main className="app-shell">
+      <section className="chat-container">
+        <header className="header">
+          <div>
+            <p className="eyebrow">COURSE AI</p>
 
-            <span
-              className="text-[11px] font-medium uppercase tracking-wider text-[#adc6ff]"
-              style={{ fontFamily: "JetBrains Mono, monospace" }}
-            >
-              INSTITUTIONAL ACCESS • FALL 2025 COHORT
-            </span>
-          </div>
-        </div>
+            <h1>AI Study Assistant</h1>
 
-        {/* Brand */}
-        <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-xl bg-[#1c1f2a] p-2 shadow-lg shadow-black/40">
-            <div className="flex h-full w-full items-center justify-center rounded-lg bg-[#313540]">
-              <span className="material-symbols-outlined text-3xl text-[#adc6ff]">
-                school
-              </span>
-            </div>
-          </div>
-
-          <h1
-            className="text-3xl font-bold tracking-tight text-[#dfe2f1]"
-            style={{ fontFamily: "Space Grotesk, sans-serif" }}
-          >
-            Course AI
-          </h1>
-
-          <p
-            className="mt-1 max-w-xs text-sm leading-snug text-[#c2c6d6]"
-            style={{ fontFamily: "Geist, sans-serif" }}
-          >
-            Academic Intelligence Grounded in Your 12 Course Modules
-          </p>
-        </div>
-
-        {/* Trust badges */}
-        <div className="mb-6 grid grid-cols-1 gap-2">
-          <div className="flex items-center gap-2 rounded-lg bg-[#171b26] px-4 py-2.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#4edea3]/10">
-              <span className="material-symbols-outlined text-[18px] text-[#4edea3]">
-                verified_user
-              </span>
-            </div>
-
-            <p className="text-sm text-[#c2c6d6]">
-              Answers are grounded in the approved course materials
+            <p className="subtitle">
+              Compare three retrieval pipelines against the same
+              course question.
             </p>
           </div>
+        </header>
 
-          <div className="flex items-center gap-2 rounded-lg bg-[#171b26] px-4 py-2.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#adc6ff]/10">
-              <span className="material-symbols-outlined text-[18px] text-[#adc6ff]">
-                shield
-              </span>
-            </div>
-
-            <p className="text-sm text-[#c2c6d6]">
-              Questions outside the verified course scope will be declined
-            </p>
-          </div>
-        </div>
-
-        {/* Login card */}
-        <div className="flex w-full flex-col gap-4 rounded-xl bg-[#171b26] p-4 shadow-xl">
-          {/* Course indicator */}
-          <div className="flex items-center justify-between rounded-lg bg-[#1c1f2a] px-2 py-2">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[20px] text-[#adc6ff]">
-                school
-              </span>
-
-              <span
-                className="text-[13px] font-semibold text-[#dfe2f1]"
-                style={{ fontFamily: "JetBrains Mono, monospace" }}
-              >
-                COURSE AI
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5 rounded-full bg-[#4edea3]/10 px-2 py-0.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#4edea3]" />
-
-              <span className="text-[11px] font-medium text-[#4edea3]">
-                Active
-              </span>
-            </div>
-          </div>
-
-          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-            {/* Email */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-baseline justify-between">
-                <label
-                  htmlFor="email"
-                  className="text-sm font-medium text-[#dfe2f1]"
-                >
-                  Email
-                </label>
-
-                <span className="text-[11px] text-[#8c909f]">
-                  Registered account
-                </span>
+        <section className="messages">
+          {messages.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-icon">
+                AI
               </div>
 
-              <div className="relative flex items-center">
-                <span className="material-symbols-outlined pointer-events-none absolute left-3 text-[20px] text-[#8c909f]">
-                  mail
-                </span>
+              <h2>Ask a question</h2>
 
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@example.com"
-                  className="h-11 w-full rounded-lg bg-[#0a0e18] pl-10 pr-3 text-sm text-[#f8fafc] placeholder:text-[#64748b] outline-none transition-colors focus:bg-[#262a35] focus:ring-2 focus:ring-[#3b82f6]/20"
-                />
+              <p>
+                Your question is answered through Basic RAG,
+                Hybrid RAG, and OKF + Hybrid RAG in parallel.
+              </p>
+
+              <div className="example">
+                “What happens when the batch size is one in
+                stochastic gradient descent?”
               </div>
-            </div>
-
-            {/* Password */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-baseline justify-between">
-                <label
-                  htmlFor="password"
-                  className="text-sm font-medium text-[#dfe2f1]"
-                >
-                  Password
-                </label>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setMessage("Password recovery will be implemented later.")
-                  }
-                  className="text-[11px] text-[#adc6ff] hover:underline"
-                >
-                  Forgot password?
-                </button>
-              </div>
-
-              <div className="relative flex items-center">
-                <span className="material-symbols-outlined pointer-events-none absolute left-3 text-[20px] text-[#8c909f]">
-                  lock
-                </span>
-
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Enter your password"
-                  className="h-11 w-full rounded-lg bg-[#0a0e18] pl-10 pr-11 text-sm text-[#f8fafc] placeholder:text-[#64748b] outline-none transition-colors focus:bg-[#262a35] focus:ring-2 focus:ring-[#3b82f6]/20"
-                />
-
-                <button
-                  type="button"
-                  aria-label={
-                    showPassword ? "Hide password" : "Show password"
-                  }
-                  onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-3 flex items-center justify-center text-[#8c909f] transition-colors hover:text-[#dfe2f1]"
-                >
-                  <span className="material-symbols-outlined text-[20px]">
-                    {showPassword ? "visibility_off" : "visibility"}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* Remember */}
-            <label className="flex cursor-pointer items-center gap-2.5">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(event) => setRememberMe(event.target.checked)}
-                className="h-4 w-4 accent-[#3b82f6]"
-              />
-
-              <span className="text-sm text-[#c2c6d6]">
-                Remember this device
-              </span>
-            </label>
-
-            {/* Sign in */}
-            <button
-              type="submit"
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#4d8eff] font-semibold text-[#00285d] shadow-lg shadow-[#4d8eff]/20 transition-all hover:bg-[#5da0ff] active:scale-[0.99]"
-            >
-              <span>Sign in to Course AI</span>
-
-              <span className="material-symbols-outlined text-[20px]">
-                arrow_forward
-              </span>
-            </button>
-          </form>
-
-          {/* Temporary message */}
-          {message && (
-            <div className="rounded-lg border border-[#334155] bg-[#0f172a] px-3 py-2 text-sm text-[#94a3b8]">
-              {message}
             </div>
           )}
-        </div>
 
-        {/* Boundary notice */}
-        <div className="mt-6 rounded-xl bg-[#1c1f2a]/60 p-4">
-          <div className="flex items-start gap-2">
-            <div className="mt-0.5 flex shrink-0 items-center justify-center rounded-lg bg-[#262a35] p-1.5">
-              <span className="material-symbols-outlined text-[20px] text-[#4edea3]">
-                verified
-              </span>
+          {messages.map((item, index) => {
+            if (item.role === "user") {
+              return (
+                <div
+                  className="message-row user-row"
+                  key={index}
+                >
+                  <div className="user-message">
+                    {item.content}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div
+               className="assistant-block"
+                key={index}
+              >
+                <div className="assistant-label">
+                  AI RESPONSE
+                </div>
+
+                <div className="answer-grid">
+                  <AnswerCard
+                    title={TRACK_LABELS.basic_rag}
+                    track={item.tracks.basic_rag}
+                  />
+
+                  <AnswerCard
+                    title={TRACK_LABELS.hybrid_rag}
+                    track={item.tracks.hybrid_rag}
+                  />
+
+                  <AnswerCard
+                    title={TRACK_LABELS.okf_hybrid_rag}
+                    track={item.tracks.okf_hybrid_rag}
+                  />
+                </div>
+              </div>
+            );
+          })}
+
+          {error && (
+            <div className="error-card">
+              <strong>Request failed</strong>
+              <span>{error}</span>
             </div>
+          )}
+        </section>
 
-            <div className="flex flex-col gap-1">
-              <h2 className="text-[15px] font-semibold text-[#dfe2f1]">
-                Restricted Knowledge Boundary
-              </h2>
+        <form
+          className="composer"
+          onSubmit={handleSubmit}
+        >
+          <textarea
+            value={message}
+            onChange={(event) =>
+              setMessage(event.target.value)
+            }
+            placeholder="Ask a question about the course material..."
+            rows={2}
+            disabled={loading}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                !event.shiftKey
+              ) {
+                event.preventDefault();
 
-              <p className="text-sm leading-relaxed text-[#c2c6d6]">
-                The assistant will answer only from the approved course
-                modules. Medical, supplement-dosing, and unrelated questions
-                will be declined.
-              </p>
-            </div>
-          </div>
-        </div>
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
+          />
 
-        {/* Footer */}
-        <div className="mt-6 flex flex-col items-center gap-2 text-center text-[#8c909f]">
-          <div
-            className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px]"
-            style={{ fontFamily: "JetBrains Mono, monospace" }}
+          <button
+            type="submit"
+            disabled={
+              loading ||
+              !message.trim()
+            }
           >
-            <span>
-              Course Knowledge Base{" "}
-              <span className="font-semibold text-[#adc6ff]">
-                Modules 1–12
-              </span>
-            </span>
-
-            <span className="h-1 w-1 rounded-full bg-[#8c909f]" />
-
-            <span className="text-[#4edea3]">Verified sources</span>
-          </div>
-
-          <p className="text-[10px] leading-tight text-[#64748b]">
-            Session queries are private to the registered student.
-          </p>
-        </div>
-      </div>
+            {loading ? "Running..." : "Ask"}
+          </button>
+        </form>
+      </section>
     </main>
   );
+}
+
+
+function AnswerCard({
+  title,
+  track,
+}: {
+  title: string;
+  track: TrackState;
+}) {
+  const isVerified =
+    track.citationValid === true;
+
+  const isStreaming =
+    track.status === "streaming";
+
+  const isComplete =
+    track.status === "complete";
+
+  return (
+    <article className="answer-card">
+      <div className="card-header">
+        <div>
+          <h3>{title}</h3>
+
+          <span
+            className={
+              isVerified
+                ? "verified"
+                : "track-status"
+            }
+          >
+            {isVerified
+              ? "✓ Citation verified"
+              : isComplete
+                ? "No verified citation"
+                : isStreaming
+                  ? "● Generating"
+                  : "Waiting"}
+          </span>
+        </div>
+      </div>
+
+      <p className="answer-text">
+        {track.answer ||
+          (isStreaming
+            ? "Generating answer..."
+            : "Waiting for this pipeline...")}
+      </p>
+
+      {(track.ttftMs !== null ||
+        track.totalMs !== null) && (
+        <div className="latency">
+          <div className="latency-item">
+            <span>TTFT</span>
+
+            <strong>
+          {formatLatency(track.ttftMs)}
+            </strong>
+          </div>
+
+          <div className="latency-item">
+            <span>Total</span>
+
+            <strong>
+              {track.totalMs !== null
+                ? formatLatency(track.totalMs)
+                : "—"}
+            </strong>
+          </div>
+        </div>
+      )}
+
+      <div className="citations">
+        <span className="citation-label">
+          SOURCES
+        </span>
+
+        {track.citations.length === 0 ? (
+          <span className="no-citations">
+            {isComplete
+              ? "No citations returned"
+              : "Waiting for citations..."}
+          </span>
+        ) : (
+          track.citations.map((citation) => (
+            <div
+              className="citation"
+              key={citation.chunk_id}
+            >
+              <span>
+                {citation.source_file}
+              </span>
+
+              <span>
+                Page {citation.page}
+              </span>
+            </div>
+          ))
+      )}
+      </div>
+    </article>
+  );
+}
+
+
+function formatLatency(
+  value: number | null,
+): string {
+  if (value === null) {
+    return "—";
+  }
+
+  return `${(value / 1000).toFixed(2)}s`;
+}
+
+
+async function consumeStream(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (
+    event: string,
+    data: Record<string, unknown>,
+  ) => void,
+) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+
+  let buffer = "";
+
+  while (true) {
+    const { value, done } =
+      await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(
+      value,
+      {
+        stream: true,
+      },
+    );
+
+    const events =
+      buffer.split("\n\n");
+
+    buffer = events.pop() ?? "";
+
+    for (const rawEvent of events) {
+      parseSSEEvent(
+        rawEvent,
+        onEvent,
+      );
+    }
+  }
+
+  if (buffer.trim()) {
+    parseSSEEvent(
+      buffer,
+      onEvent,
+    );
+  }
+}
+
+
+function parseSSEEvent(
+  rawEvent: string,
+  onEvent: (
+    event: string,
+    data: Record<string, unknown>,
+  ) => void,
+) {
+  let eventName = "";
+  let data = "";
+
+  const lines =
+    rawEvent.split("\n");
+
+  for (const line of lines) {
+    if (line.startsWith("event:")) {
+      eventName =
+        line.slice(6).trim();
+    }
+
+    if (line.startsWith("data:")) {
+      data += line
+        .slice(5)
+        .trim();
+    }
+  }
+
+  if (!eventName || !data) {
+    return;
+  }
+
+  try {
+    const parsed =
+      JSON.parse(data);
+
+    onEvent(
+      eventName,
+      parsed,
+    );
+  } catch {
+    console.error(
+      "Failed to parse SSE data:",
+      data,
+    );
+  }
+}
+
+
+function handleStreamEvent(
+  event: string,
+  data: Record<string, unknown>,
+  setMessages: React.Dispatch<
+    React.SetStateAction<ChatMessage[]>
+  >,
+) {
+  if (
+    event === "track_started"
+  ) {
+    const track =
+      data.track as TrackName;
+
+    const ttftMs =
+      typeof data.ttft_ms === "number"
+        ? data.ttft_ms
+        : null;
+
+    updateLatestAssistant(
+      setMessages,
+      (assistant) => {
+        assistant.tracks[track] = {
+          ...assistant.tracks[track],
+          ttftMs,
+          status: "streaming",
+        };
+      },
+    );
+
+    return;
+  }
+
+  if (event === "token") {
+    const track =
+      data.track as TrackName;
+
+    const text =
+      typeof data.text === "string"
+        ? data.text
+        : "";
+
+    updateLatestAssistant(
+      setMessages,
+      (assistant) => {
+        assistant.tracks[track] = {
+          ...assistant.tracks[track],
+          answer:
+            assistant.tracks[track].answer +
+            text,
+          status: "streaming",
+        };
+      },
+    );
+
+    return;
+  }
+
+  if (
+    event === "track_completed"
+  ) {
+    const track =
+      data.track as TrackName;
+
+    const totalMs =
+      typeof data.total_ms === "number"
+        ? data.total_ms
+        : null;
+
+    const ttftMs =
+      typeof data.ttft_ms === "number"
+        ? data.ttft_ms
+        : null;
+
+    updateLatestAssistant(
+      setMessages,
+      (assistant) => {
+        assistant.tracks[track] = {
+          ...assistant.tracks[track],
+          totalMs,
+          ttftMs,
+          status: "complete",
+        };
+      },
+    );
+
+    return;
+  }
+
+  if (event === "final") {
+    const response =
+      data.response as ChatResponse;
+
+    updateLatestAssistant(
+      setMessages,
+      (assistant) => {
+        const map: Array<
+          [TrackName, RAGResponse]
+        > = [
+          [
+            "basic_rag",
+            response.basic_rag,
+          ],
+          [
+            "hybrid_rag",
+            response.hybrid_rag,
+          ],
+          [
+            "okf_hybrid_rag",
+            response.okf_hybrid_rag,
+          ],
+        ];
+
+        for (const [
+          track,
+          result,
+        ] of map) {
+          assistant.tracks[track] = {
+            ...assistant.tracks[track],
+            answer: result.answer,
+            citations:
+              result.citations,
+            citationValid:
+              result
+                .citation_validation
+                .valid,
+            status: "complete",
+          };
+        }
+      },
+    );
+
+    return;
+  }
+
+  if (event === "error") {
+    const message =
+      typeof data.message === "string"
+        ? data.message
+        : "Streaming failed.";
+
+    console.error(
+      "Stream error:",
+      message,
+    );
+
+    return;
+  }
+}
+
+
+function updateLatestAssistant(
+  setMessages: React.Dispatch<
+    React.SetStateAction<ChatMessage[]>
+  >,
+  updater: (
+    assistant: AssistantMessage,
+  ) => void,
+) {
+  setMessages((previous) => {
+    const updated = [...previous];
+
+    for (
+      let index =
+        updated.length - 1;
+      index >= 0;
+      index--
+    ) {
+      const item =
+        updated[index];
+
+      if (
+        item.role ===
+        "assistant"
+      ) {
+        const assistant = {
+          ...item,
+          tracks: {
+            basic_rag: {
+              ...item.tracks.basic_rag,
+            },
+            hybrid_rag: {
+              ...item.tracks.hybrid_rag,
+            },
+            okf_hybrid_rag: {
+              ...item.tracks.okf_hybrid_rag,
+            },
+          },
+        };
+
+        updater(assistant);
+
+        updated[index] =
+          assistant;
+
+        break;
+      }
+    }
+
+    return updated;
+  });
 }

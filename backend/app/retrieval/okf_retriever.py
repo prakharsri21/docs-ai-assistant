@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import pickle
 import re
 from pathlib import Path
 
@@ -9,6 +11,8 @@ from app.retrieval.rrf import reciprocal_rank_fusion
 
 
 OKF_PATH = Path("data/okf/okf_nodes_usable.jsonl")
+CACHE_PATH = Path("data/okf/okf_embeddings.pkl")
+MODEL_NAME = "BAAI/bge-m3"
 
 
 def tokenize(text: str) -> list[str]:
@@ -47,7 +51,7 @@ class OKFRetriever:
             for node in self.nodes
         ]
 
-        self.embeddings = self.embedding_model.embed_documents(
+        self.embeddings = self._load_or_create_embeddings(
             self.search_texts
         )
 
@@ -236,3 +240,85 @@ class OKFRetriever:
 
         return fused[:top_k]
         
+    def _get_source_hash(self) -> str:
+        """
+        Create a fingerprint of the OKF dataset.
+
+        If the OKF file changes, the cached embeddings are
+        considered stale and will be regenerated.
+        """
+        digest = hashlib.sha256()
+
+        with self.okf_path.open("rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                digest.update(chunk)
+
+        return digest.hexdigest()
+
+    def _load_or_create_embeddings(
+        self,
+        search_texts: list[str],
+    ) -> list[list[float]]:
+        """
+        Load cached OKF embeddings when possible.
+        Otherwise generate them and save them.
+        """
+
+        source_hash = self._get_source_hash()
+
+        if CACHE_PATH.exists():
+
+            try:
+                with CACHE_PATH.open("rb") as f:
+                    cached = pickle.load(f)
+
+                if (
+                    cached.get("source_hash") == source_hash
+                    and cached.get("model_name") == MODEL_NAME
+                    and cached.get("count") == len(search_texts)
+                ):
+                    print(
+                        f"Loaded cached OKF embeddings "
+                        f"({len(search_texts)} nodes)."
+                    )
+
+                    return cached["embeddings"]
+
+            except Exception as exc:
+                print(
+                    f"Could not load OKF embedding cache: {exc}"
+                )
+
+        print(
+            f"Generating OKF embeddings for "
+            f"{len(search_texts)} nodes..."
+        )
+
+        embeddings = self.embedding_model.embed_documents(
+            search_texts
+        )
+
+        CACHE_PATH.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        cache = {
+            "source_hash": source_hash,
+            "model_name": MODEL_NAME,
+            "count": len(search_texts),
+            "embeddings": embeddings,
+        }
+
+        with CACHE_PATH.open("wb") as f:
+            pickle.dump(
+                cache,
+                f,
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
+
+        print(
+            f"Saved OKF embedding cache to {CACHE_PATH}"
+        )
+
+        return embeddings

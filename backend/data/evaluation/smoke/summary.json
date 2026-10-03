@@ -1,0 +1,36 @@
+{
+  "run_id": "smoke",
+  "total_questions": 1,
+  "completed_questions": 1,
+  "failed_questions": 0,
+  "completed_at": "2026-10-02T11:56:27.976522+00:00",
+  "tracks": {
+    "basic_rag": {
+      "score": 1,
+      "total": 1,
+      "evaluated": 1,
+      "percentage": 100.0,
+      "citation_valid": 1,
+      "citation_valid_percentage": 100.0,
+      "average_latency_ms": 21888.52
+    },
+    "hybrid_rag": {
+      "score": 1,
+      "total": 1,
+      "evaluated": 1,
+      "percentage": 100.0,
+      "citation_valid": 1,
+      "citation_valid_percentage": 100.0,
+      "average_latency_ms": 21888.52
+    },
+    "okf_hybrid_rag": {
+      "score": 1,
+      "total": 1,
+      "evaluated": 1,
+      "percentage": 100.0,
+      "citation_valid": 1,
+      "citation_valid_percentage": 100.0,
+      "average_latency_ms": 21888.52
+    }
+  }
+}

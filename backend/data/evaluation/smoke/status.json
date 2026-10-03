@@ -1,0 +1,12 @@
+{
+  "run_id": "smoke",
+  "status": "completed",
+  "total_questions": 1,
+  "completed_questions": 1,
+  "failed_questions": 0,
+  "current_question_id": null,
+  "current_question": null,
+  "started_at": "2026-10-02T11:56:06.085314+00:00",
+  "updated_at": "2026-10-02T11:56:27.976895+00:00",
+  "error": null
+}

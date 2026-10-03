@@ -1,0 +1,12 @@
+{
+  "run_id": "baseline",
+  "status": "completed",
+  "total_questions": 200,
+  "completed_questions": 200,
+  "failed_questions": 0,
+  "current_question_id": null,
+  "current_question": null,
+  "started_at": "2026-10-02T12:10:27.166459+00:00",
+  "updated_at": "2026-10-02T14:43:22.636885+00:00",
+  "error": null
+}

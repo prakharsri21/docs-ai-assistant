@@ -1,0 +1,36 @@
+{
+  "run_id": "baseline",
+  "total_questions": 200,
+  "completed_questions": 200,
+  "failed_questions": 0,
+  "completed_at": "2026-10-02T14:43:22.636044+00:00",
+  "tracks": {
+    "basic_rag": {
+      "score": 180,
+      "total": 200,
+      "evaluated": 200,
+      "percentage": 90.0,
+      "citation_valid": 191,
+      "citation_valid_percentage": 95.5,
+      "average_latency_ms": 29462.52
+    },
+    "hybrid_rag": {
+      "score": 187,
+      "total": 200,
+      "evaluated": 200,
+      "percentage": 93.5,
+      "citation_valid": 196,
+      "citation_valid_percentage": 98.0,
+      "average_latency_ms": 29462.52
+    },
+    "okf_hybrid_rag": {
+      "score": 184,
+      "total": 200,
+      "evaluated": 200,
+      "percentage": 92.0,
+      "citation_valid": 198,
+      "citation_valid_percentage": 99.0,
+      "average_latency_ms": 29462.52
+    }
+  }
+}

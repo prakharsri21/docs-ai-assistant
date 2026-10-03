@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.retrieval.okf_retriever import OKFRetriever
-from app.retrieval.reranker import Reranker
+from app.retrieval.reranker import get_reranker
 
 
 class RerankedOKFRetriever:
@@ -12,7 +12,7 @@ class RerankedOKFRetriever:
         top_k: int = 10,
     ):
         self.retriever = OKFRetriever()
-        self.reranker = Reranker()
+        self.reranker = get_reranker()
 
         self.candidate_k = candidate_k
         self.top_k = top_k

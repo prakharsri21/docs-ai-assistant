@@ -1,4 +1,6 @@
 from __future__ import annotations
+from functools import lru_cache
+from sentence_transformers import CrossEncoder
 
 from sentence_transformers import CrossEncoder
 
@@ -22,6 +24,7 @@ class Reranker:
         self.model = CrossEncoder(
             model_name,
             max_length=512,
+            device="cpu",
         )
 
     def rerank(
@@ -91,3 +94,6 @@ class Reranker:
             ]
             if part
         )
+@lru_cache(maxsize=1)
+def get_reranker() -> Reranker:
+    return Reranker()

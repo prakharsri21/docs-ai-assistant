@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.retrieval.hybrid_retriever import HybridRetriever
-from app.retrieval.reranker import Reranker
+from app.retrieval.reranker import get_reranker
 
 
 class RerankedHybridRetriever:
@@ -12,7 +12,7 @@ class RerankedHybridRetriever:
         top_k: int = 10,
     ):
         self.retriever = HybridRetriever()
-        self.reranker = Reranker()
+        self.reranker = get_reranker()
 
         self.candidate_k = candidate_k
         self.top_k = top_k

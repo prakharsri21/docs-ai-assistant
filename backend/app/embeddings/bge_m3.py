@@ -1,14 +1,13 @@
+from functools import lru_cache
+
 from langchain_huggingface import HuggingFaceEmbeddings
 
 
 MODEL_NAME = "BAAI/bge-m3"
 
 
-def create_embedding_model() -> HuggingFaceEmbeddings:
-    """
-    Create the BGE-M3 embedding model used by the RAG pipelines.
-    """
-
+@lru_cache(maxsize=1)
+def create_embedding_model():
     return HuggingFaceEmbeddings(
         model_name=MODEL_NAME,
         model_kwargs={
