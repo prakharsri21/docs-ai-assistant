@@ -163,7 +163,6 @@ The benchmark uses the **same application graph**, so evaluation tests the actua
 
 ## 📸 Screenshots
 
-Replace these with your own images:
 
 ![Chat UI](chat-ui.png)
 
