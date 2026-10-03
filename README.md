@@ -170,21 +170,7 @@ The benchmark uses the **same application graph**, so evaluation tests the actua
 
 
 
----
 
-## 🚧 V2
-
-```mermaid
-flowchart LR
-    P["PDF"] --> T["Text Retrieval"]
-    P --> V["👁️ Vision / OCR"]
-    T --> F["🔀 Multimodal Fusion"]
-    V --> F
-    F --> R["🎯 Rerank"]
-    R --> A["✅ More Faithful Answers"]
-```
-
-**OCR · ColPali · multimodal fusion · citation faithfulness · LangSmith · stage-level observability · cloud deployment**
 
 ---
 
