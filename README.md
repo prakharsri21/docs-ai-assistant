@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/PostgreSQL-pgvector-316192?style=for-the-badge&logo=postgresql">
 </p>
 
-![Project](docs/images/project-banner.png)
+
 
 ## 🎯 What is it?
 
@@ -165,11 +165,11 @@ The benchmark uses the **same application graph**, so evaluation tests the actua
 
 Replace these with your own images:
 
-![Chat UI](docs/images/chat-ui.png)
+![Chat UI](chat-ui.png)
 
-![Evaluation Dashboard](docs/images/evaluation-dashboard.png)
+![Evaluation Dashboard](evaluation-dashboard.png)
 
-![Architecture](docs/images/architecture.png)
+
 
 ---
 
